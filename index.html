@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#ECF0F0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1517" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="เช็คลิสต์เทรด">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>เช็คลิสต์ก่อนเข้าออเดอร์</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Prompt:wght@500;600&display=swap">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+
+/* Layout: single column trading-desk sheet. Sticky verdict bar on top, four check groups, then a risk calculator, then notes. */
+:root {
+  --bg: #ECF0F0;
+  --surface: #F8FAFA;
+  --fg: #12201F;
+  --muted: #5A6B6A;
+  --line: #CFD8D8;
+  --accent: #0B5C66;
+  --accent-fg: #FFFFFF;
+  --go: #1B7A4B;
+  --go-bg: #DDF0E5;
+  --stop: #B3372D;
+  --stop-bg: #F6DEDB;
+  --warn: #8A5A00;
+  --warn-bg: #F6E9CC;
+  --font-display: "Prompt", "IBM Plex Sans Thai", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans Thai", system-ui, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1517;
+    --surface: #162022;
+    --fg: #E4EEEC;
+    --muted: #8FA3A1;
+    --line: #273436;
+    --accent: #4DB6C2;
+    --accent-fg: #06282D;
+    --go: #5CCB92;
+    --go-bg: #13301F;
+    --stop: #F08A80;
+    --stop-bg: #3A1A17;
+    --warn: #E5B552;
+    --warn-bg: #35280C;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1517;
+  --surface: #162022;
+  --fg: #E4EEEC;
+  --muted: #8FA3A1;
+  --line: #273436;
+  --accent: #4DB6C2;
+  --accent-fg: #06282D;
+  --go: #5CCB92;
+  --go-bg: #13301F;
+  --stop: #F08A80;
+  --stop-bg: #3A1A17;
+  --warn: #E5B552;
+  --warn-bg: #35280C;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+  padding-inline: 16px;
+  padding-block: 24px 56px;
+}
+.wrap { max-width: 720px; margin-inline: auto; display: flex; flex-direction: column; gap: 20px; }
+
+h1 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.75rem;
+  line-height: 1.25;
+  margin: 0;
+  text-wrap: balance;
+}
+.lede { margin: 6px 0 0; color: var(--muted); font-size: 0.9375rem; max-width: 65ch; }
+
+/* Verdict bar */
+.verdict {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.verdict.wait { border-color: var(--warn); background: var(--warn-bg); }
+.verdict.block { border-color: var(--stop); background: var(--stop-bg); }
+.verdict.ready { border-color: var(--go); background: var(--go-bg); }
+.v-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.v-dot { width: 12px; height: 12px; border-radius: 50%; flex: none; background: var(--warn); }
+.verdict.block .v-dot { background: var(--stop); }
+.verdict.ready .v-dot { background: var(--go); }
+.v-title { font-family: var(--font-display); font-weight: 600; font-size: 1.125rem; }
+.verdict.wait .v-title { color: var(--warn); }
+.verdict.block .v-title { color: var(--stop); }
+.verdict.ready .v-title { color: var(--go); }
+.v-detail { margin: 0; font-size: 0.875rem; overflow-wrap: anywhere; }
+.track { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.track i { display: block; height: 100%; width: 0; background: var(--warn); transition: width 0.25s ease; }
+.verdict.block .track i { background: var(--stop); }
+.verdict.ready .track i { background: var(--go); }
+
+/* Sections */
+.group { display: flex; flex-direction: column; gap: 8px; }
+.group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.group-head h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.0625rem; margin: 0; }
+.group-head .cnt { font-family: var(--font-data); font-size: 0.8125rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); overflow: hidden; }
+.row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; min-height: 56px; border-top: 1px solid var(--line); }
+.row:first-child { border-top: 0; }
+.row.is-n { background: var(--stop-bg); }
+.txt { flex: 1; min-width: 0; overflow-wrap: anywhere; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.row.is-y .t { color: var(--muted); }
+.tag {
+  font-family: var(--font-data);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  padding: 1px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+.tag.req { border-color: var(--accent); color: var(--accent); }
+.marks { flex: none; display: flex; gap: 8px; }
+.mark {
+  width: 44px;
+  height: 44px;
+  min-height: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+}
+.mark svg { width: 22px; height: 22px; }
+.mark.yes:hover { border-color: var(--go); color: var(--go); background: var(--bg); }
+.mark.no:hover { border-color: var(--stop); color: var(--stop); background: var(--bg); }
+.mark.yes[aria-pressed="true"] { background: var(--go); border-color: var(--go); color: var(--bg); }
+.mark.no[aria-pressed="true"] { background: var(--stop); border-color: var(--stop); color: var(--bg); }
+
+/* Multi-timeframe ladder */
+.mtf { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.mtf-rows { display: flex; flex-direction: column; gap: 10px; }
+.mtf-row { display: grid; grid-template-columns: 5.5rem 1fr auto; grid-template-areas: "tf seg chip"; gap: 8px 10px; align-items: center; }
+.mtf-row select { grid-area: tf; font: inherit; font-family: var(--font-data); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 9px 8px; min-height: 44px; width: 100%; min-width: 0; }
+.mtf-row select:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.seg { grid-area: seg; display: flex; gap: 6px; min-width: 0; }
+.seg label { flex: 1; min-width: 0; position: relative; }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.seg span { display: flex; align-items: center; justify-content: center; text-align: center; min-height: 44px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--muted); font-size: 0.875rem; cursor: pointer; overflow-wrap: anywhere; }
+.seg input:checked + span { font-weight: 600; }
+.seg input[value="up"]:checked + span { background: var(--go-bg); border-color: var(--go); color: var(--go); }
+.seg input[value="down"]:checked + span { background: var(--stop-bg); border-color: var(--stop); color: var(--stop); }
+.seg input[value="side"]:checked + span { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
+.seg input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
+.chip { grid-area: chip; font-family: var(--font-data); font-size: 0.75rem; min-width: 3.2rem; text-align: center; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); }
+.chip.match { border-color: var(--go); color: var(--go); }
+.chip.neutral { border-color: var(--warn); color: var(--warn); }
+.chip.conflict { border-color: var(--stop); color: var(--stop); }
+@media (max-width: 520px) {
+  .mtf-row { grid-template-columns: 1fr auto; grid-template-areas: "tf chip" "seg seg"; }
+  .mtf-row select { max-width: 9rem; }
+}
+.msg.ok { background: var(--go-bg); color: var(--go); }
+
+/* Calculator */
+.calc { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+.hint { margin: 0; font-size: 0.8125rem; color: var(--muted); }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field label { font-size: 0.8125rem; color: var(--muted); }
+.field input, textarea {
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 9px 10px;
+}
+.field input { font-family: var(--font-data); font-size: 1rem; font-variant-numeric: tabular-nums; }
+.field input:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.results { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.res { background: var(--surface); padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.res span { font-size: 0.75rem; color: var(--muted); }
+.res b { font-family: var(--font-data); font-weight: 500; font-size: 1.0625rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.res.key b { color: var(--accent); }
+.msg { margin: 0; padding: 10px 12px; border-radius: 6px; font-size: 0.875rem; background: var(--warn-bg); color: var(--warn); }
+.msg.bad { background: var(--stop-bg); color: var(--stop); }
+.warns { display: flex; flex-direction: column; gap: 6px; }
+
+textarea { min-height: 96px; resize: vertical; line-height: 1.5; }
+
+/* Footer */
+.foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.foot p { margin: 0; font-size: 0.8125rem; color: var(--muted); max-width: 46ch; }
+button {
+  font: inherit;
+  font-weight: 500;
+  color: var(--accent);
+  background: transparent;
+  border: 1.5px solid var(--accent);
+  border-radius: 6px;
+  padding: 10px 16px;
+  min-height: 44px;
+  cursor: pointer;
+}
+button:hover { background: var(--accent); color: var(--accent-fg); }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button.armed { border-color: var(--stop); color: var(--stop); }
+button.armed:hover { background: var(--stop); color: var(--bg); }
+@media (prefers-reduced-motion: reduce) { .track i { transition: none; } }
+
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>เช็คลิสต์ก่อนเข้าออเดอร์</h1>
+    <p class="lede">เช็คเทรนจากกรอบใหญ่ลงกรอบเล็ก ติ๊กข้อบังคับ กรอกจุดเข้า Stop Loss และเป้ากำไร แล้วดูว่าพร้อมกดออเดอร์หรือยัง</p>
+  </header>
+
+  <div class="verdict wait" id="verdict" role="status" aria-live="polite">
+    <div class="v-head"><span class="v-dot"></span><span class="v-title" id="v-title">ยังไม่พร้อม</span></div>
+    <p class="v-detail" id="v-detail"></p>
+    <div class="track"><i id="v-fill"></i></div>
+  </div>
+
+  <section class="group">
+    <div class="group-head"><h2>เทรนจากกรอบใหญ่ลงกรอบเล็ก</h2><span class="cnt" id="cnt-mtf"></span></div>
+    <div class="mtf">
+      <p class="hint">เรียงจากกรอบใหญ่สุดลงมากรอบที่เข้าออเดอร์ เลือกกรอบเวลาและเทรนของแต่ละกรอบ ค่าตั้งต้นเป็นตัวอย่าง</p>
+      <div class="mtf-rows" id="mtf-rows"></div>
+      <div id="mtf-out"></div>
+    </div>
+  </section>
+
+  <p class="hint">กด ✓ เมื่อผ่าน กด ✗ เมื่อไม่ผ่าน ข้อบังคับที่ไม่ผ่านจะกันไม่ให้ขึ้นพร้อมเข้า กดซ้ำเพื่อล้างเครื่องหมาย</p>
+
+  <div id="sections" class="wrap" style="gap:20px"></div>
+
+  <section class="group">
+    <div class="group-head"><h2>คำนวณขนาดไม้และ R:R</h2></div>
+    <div class="calc">
+      <p class="hint">ค่าที่ใส่อยู่เป็นตัวอย่าง แก้เป็นตัวเลขของคุณ ระบบดูทิศทางจากตำแหน่งของ Stop Loss เทียบกับจุดเข้า</p>
+      <div class="fields">
+        <div class="field"><label for="f-balance">ทุนในพอร์ต</label><input id="f-balance" data-k="balance" type="number" inputmode="decimal" step="any" min="0"></div>
+        <div class="field"><label for="f-risk">ความเสี่ยงต่อไม้ (%)</label><input id="f-risk" data-k="risk" type="number" inputmode="decimal" step="any" min="0"></div>
+        <div class="field"><label for="f-minrr">R:R ขั้นต่ำที่ยอมรับ</label><input id="f-minrr" data-k="minrr" type="number" inputmode="decimal" step="any" min="0"></div>
+        <div class="field"><label for="f-entry">ราคาเข้า</label><input id="f-entry" data-k="entry" type="number" inputmode="decimal" step="any" min="0"></div>
+        <div class="field"><label for="f-stop">Stop Loss</label><input id="f-stop" data-k="stop" type="number" inputmode="decimal" step="any" min="0"></div>
+        <div class="field"><label for="f-target">เป้ากำไร (Take Profit)</label><input id="f-target" data-k="target" type="number" inputmode="decimal" step="any" min="0"></div>
+      </div>
+      <div id="calc-out"></div>
+    </div>
+  </section>
+
+  <section class="group">
+    <div class="group-head"><h2>เหตุผลที่เข้าไม้นี้</h2></div>
+    <textarea id="notes" aria-label="เหตุผลที่เข้าไม้นี้" placeholder="เขียนสั้นๆ ว่าเห็นอะไร ทำไมเข้า และจะออกเมื่อไร"></textarea>
+  </section>
+
+  <div class="foot">
+    <p>ข้อมูลบันทึกไว้ในเบราว์เซอร์เครื่องนี้ เครื่องมือนี้ช่วยรักษาวินัย ไม่ใช่คำแนะนำการลงทุน</p>
+    <button type="button" id="reset">เริ่มไม้ใหม่</button>
+  </div>
+</main>
+
+<script>
+(function () {
+  var SECTIONS = [
+    { title: "บริบทตลาด", items: [
+      { id: "m2", t: "เช็คข่าวและปฏิทินเศรษฐกิจแล้ว ไม่มีข่าวแรงใน 30 นาทีข้างหน้า", r: 1 },
+      { id: "m3", t: "ราคาอยู่ใกล้แนวรับหรือแนวต้านที่เห็นชัด", r: 1 },
+      { id: "m4", t: "สภาพคล่องและสเปรดปกติ", r: 0 }
+    ]},
+    { title: "สัญญาณเข้า", items: [
+      { id: "s1", t: "ตรงกับแผนเทรดที่เขียนไว้ล่วงหน้า", r: 1 },
+      { id: "s2", t: "มีแท่งเทียนหรือสัญญาณยืนยันแล้ว ไม่ได้เข้าก่อนสัญญาณ", r: 1 },
+      { id: "s3", t: "ไม่ได้ไล่ราคา และไม่ได้เข้าเพราะกลัวตกรถ", r: 1 },
+      { id: "s4", t: "อินดิเคเตอร์หรือวอลลุ่มสนับสนุนสัญญาณ", r: 0 }
+    ]},
+    { title: "บริหารความเสี่ยง", items: [
+      { id: "r1", t: "ตั้ง Stop Loss ไว้ในออเดอร์จริงแล้ว ไม่ใช่แค่ในใจ", r: 1 },
+      { id: "r2", t: "กำหนดเป้ากำไรและแผนออกไว้แล้ว", r: 1 },
+      { id: "r3", t: "ขนาดไม้ตรงกับผลคำนวณด้านล่าง ความเสี่ยงไม่เกินที่ตั้งไว้", r: 1 },
+      { id: "r4", t: "ขาดทุนสะสมวันนี้ยังไม่ถึงเพดานที่กำหนด", r: 1 }
+    ]},
+    { title: "สภาพจิตใจ", items: [
+      { id: "p1", t: "นอนพอ ไม่เครียด ไม่หงุดหงิด", r: 1 },
+      { id: "p2", t: "ไม่ได้เข้าเพื่อเอาคืนจากไม้ก่อนหน้า", r: 1 },
+      { id: "p3", t: "ยอมรับได้เต็มใจหากโดน Stop Loss", r: 1 }
+    ]}
+  ];
+
+  var KEY = "pretrade-checklist-v1";
+  var DEFAULTS = { balance: "100000", risk: "1", minrr: "2", entry: "100", stop: "98", target: "106" };
+  var TFS = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN"];
+  var TRENDS = [{ v: "up", t: "▲ ขึ้น" }, { v: "side", t: "▬ ไซด์เวย์" }, { v: "down", t: "▼ ลง" }];
+  var state = {
+    checks: {},
+    vals: Object.assign({}, DEFAULTS),
+    notes: "",
+    mtf: [
+      { tf: "W1", tr: "up" }, { tf: "D1", tr: "up" }, { tf: "H4", tr: "up" }, { tf: "H1", tr: "up" }, { tf: "M15", tr: "side" }, { tf: "M5", tr: "up" }, { tf: "M1", tr: "up" }
+    ]
+  };
+
+  try {
+    var raw = localStorage.getItem(KEY);
+    if (raw) {
+      var p = JSON.parse(raw);
+      if (p && typeof p === "object") {
+        state.checks = {};
+        if (p.checks && typeof p.checks === "object") {
+          Object.keys(p.checks).forEach(function (k) {
+            var v = p.checks[k];
+            if (v === "n") state.checks[k] = "n"; else if (v) state.checks[k] = "y";
+          });
+        }
+        state.vals = Object.assign(state.vals, p.vals || {});
+        state.notes = typeof p.notes === "string" ? p.notes : "";
+        if (Array.isArray(p.mtf)) {
+          state.mtf = state.mtf.map(function (d, i) {
+            var r = p.mtf[i];
+            if (!r) return d;
+            return {
+              tf: TFS.indexOf(r.tf) >= 0 ? r.tf : d.tf,
+              tr: ["up", "side", "down"].indexOf(r.tr) >= 0 ? r.tr : ""
+            };
+          });
+        }
+      }
+    }
+  } catch (e) {}
+
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+  function num(v) { var n = parseFloat(String(v).replace(/,/g, "")); return isFinite(n) ? n : NaN; }
+  function fmt(n, d) { return n.toLocaleString("th-TH", { maximumFractionDigits: d }); }
+
+  /* ---------- checklist ---------- */
+  var ICON_YES = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
+  var ICON_NO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  var allRequired = [];
+  var html = "";
+  SECTIONS.forEach(function (sec, i) {
+    html += '<section class="group"><div class="group-head"><h2>' + esc(sec.title) + '</h2><span class="cnt" id="cnt-' + i + '"></span></div><div class="list">';
+    sec.items.forEach(function (it) {
+      if (it.r) allRequired.push(it);
+      html += '<div class="row" id="row-' + it.id + '"><div class="txt"><span class="t">' + esc(it.t) + '</span><span class="tag' + (it.r ? " req" : "") + '">' + (it.r ? "บังคับ" : "เสริม") + '</span></div>' +
+        '<div class="marks">' +
+        '<button type="button" class="mark yes" id="b-' + it.id + '-y" data-id="' + it.id + '" data-v="y" aria-pressed="false" aria-label="ผ่าน: ' + esc(it.t) + '">' + ICON_YES + "</button>" +
+        '<button type="button" class="mark no" id="b-' + it.id + '-n" data-id="' + it.id + '" data-v="n" aria-pressed="false" aria-label="ไม่ผ่าน: ' + esc(it.t) + '">' + ICON_NO + "</button>" +
+        "</div></div>";
+    });
+    html += "</div></section>";
+  });
+  $("sections").innerHTML = html;
+
+  $("sections").addEventListener("click", function (ev) {
+    var el = ev.target && ev.target.closest ? ev.target.closest("button.mark") : null;
+    if (!el) return;
+    var id = el.dataset.id, v = el.dataset.v;
+    if (state.checks[id] === v) delete state.checks[id]; else state.checks[id] = v;
+    save();
+    refresh();
+  });
+
+  /* ---------- calculator ---------- */
+  function calc() {
+    var v = state.vals;
+    var b = num(v.balance), r = num(v.risk), m = num(v.minrr), e = num(v.entry), s = num(v.stop), t = num(v.target);
+    if (!(b > 0 && r > 0 && r <= 100 && m > 0 && e > 0 && s > 0 && t > 0)) {
+      return { valid: false, msg: "กรอกตัวเลขให้ครบทุกช่อง (ความเสี่ยงต้องอยู่ระหว่าง 0 ถึง 100%)" };
+    }
+    if (e === s) return { valid: false, msg: "ราคาเข้าและ Stop Loss ต้องไม่เท่ากัน" };
+    var dir = e > s ? "long" : "short";
+    var rewardDist = dir === "long" ? t - e : e - t;
+    if (rewardDist <= 0) {
+      return { valid: false, msg: dir === "long" ? "ฝั่งซื้อ: เป้ากำไรต้องสูงกว่าราคาเข้า" : "ฝั่งขาย: เป้ากำไรต้องต่ำกว่าราคาเข้า" };
+    }
+    var dist = Math.abs(e - s);
+    var riskAmt = b * r / 100;
+    var size = riskAmt / dist;
+    var rr = rewardDist / dist;
+    var warns = [];
+    if (r > 2) warns.push("ความเสี่ยงต่อไม้เกิน 2% ของพอร์ต");
+    if (size * e > b) warns.push("มูลค่าสถานะเกินทุน ต้องใช้มาร์จินหรือเลเวอเรจ ตรวจ margin ก่อนเข้า");
+    return { valid: true, dir: dir, riskAmt: riskAmt, dist: dist, size: size, value: size * e, rr: rr, reward: riskAmt * rr, ok: rr >= m, min: m, warns: warns };
+  }
+
+  function renderCalc(c) {
+    var out = $("calc-out");
+    if (!c.valid) { out.innerHTML = '<p class="msg bad">' + esc(c.msg) + "</p>"; return; }
+    var sd = c.size >= 100 ? 0 : (c.size >= 1 ? 2 : 4);
+    var h = '<div class="results">' +
+      '<div class="res"><span>ทิศทาง</span><b>' + (c.dir === "long" ? "ซื้อ (Long)" : "ขาย (Short)") + "</b></div>" +
+      '<div class="res"><span>ระยะ Stop Loss</span><b>' + fmt(c.dist, 4) + "</b></div>" +
+      '<div class="res"><span>เงินเสี่ยงต่อไม้</span><b>' + fmt(c.riskAmt, 2) + "</b></div>" +
+      '<div class="res key"><span>ขนาดไม้ (หน่วยสินทรัพย์)</span><b>' + fmt(c.size, sd) + "</b></div>" +
+      '<div class="res"><span>มูลค่าสถานะ</span><b>' + fmt(c.value, 2) + "</b></div>" +
+      '<div class="res key"><span>R:R</span><b>1 : ' + fmt(c.rr, 2) + "</b></div>" +
+      '<div class="res"><span>กำไรหากถึงเป้า</span><b>' + fmt(c.reward, 2) + "</b></div>" +
+      "</div>";
+    if (!c.ok) h += '<p class="msg bad" style="margin-top:12px">R:R ต่ำกว่าเกณฑ์ที่ตั้งไว้ (1 : ' + fmt(c.min, 2) + ")</p>";
+    if (c.warns.length) {
+      h += '<div class="warns" style="margin-top:12px">' + c.warns.map(function (w) { return '<p class="msg">' + esc(w) + "</p>"; }).join("") + "</div>";
+    }
+    h += '<p class="hint" style="margin-top:12px">ปัดขนาดไม้ลงตามขั้นต่ำของตลาดที่เทรด เช่น ล็อต หรือจำนวนหุ้น</p>';
+    out.innerHTML = h;
+  }
+
+  /* ---------- multi-timeframe ---------- */
+  var mtfHtml = "";
+  state.mtf.forEach(function (row, i) {
+    mtfHtml += '<div class="mtf-row" role="group" aria-label="กรอบเวลาที่ ' + (i + 1) + '">' +
+      '<select id="tf-' + i + '" data-i="' + i + '" aria-label="กรอบเวลาที่ ' + (i + 1) + '">' +
+      TFS.map(function (t) { return '<option value="' + t + '">' + t + "</option>"; }).join("") + "</select>" +
+      '<div class="seg" role="radiogroup" aria-label="เทรนกรอบที่ ' + (i + 1) + '">' +
+      TRENDS.map(function (tr) {
+        return '<label><input type="radio" name="tr-' + i + '" value="' + tr.v + '" data-i="' + i + '"><span>' + tr.t + "</span></label>";
+      }).join("") +
+      '</div><span class="chip" id="chip-' + i + '">—</span></div>';
+  });
+  $("mtf-rows").innerHTML = mtfHtml;
+
+  $("mtf-rows").addEventListener("change", function (ev) {
+    var el = ev.target;
+    var i = parseInt(el.dataset ? el.dataset.i : "", 10);
+    if (isNaN(i)) return;
+    if (el.tagName === "SELECT") state.mtf[i].tf = el.value;
+    else if (el.type === "radio") state.mtf[i].tr = el.value;
+    save();
+    refresh();
+  });
+
+  function mtf(c) {
+    var rows = state.mtf, n = rows.length;
+    var filled = rows.filter(function (r) { return r.tr; }).length;
+    var dir = c.valid ? c.dir : (rows[0].tr === "up" ? "long" : (rows[0].tr === "down" ? "short" : null));
+    var want = dir === "long" ? "up" : (dir === "short" ? "down" : null);
+    var res = rows.map(function (r) {
+      if (!r.tr || !want) return "";
+      return r.tr === want ? "match" : (r.tr === "side" ? "neutral" : "conflict");
+    });
+    var match = res.filter(function (x) { return x === "match"; }).length;
+    var neutral = res.filter(function (x) { return x === "neutral"; }).length;
+    var conflict = res.filter(function (x) { return x === "conflict"; }).length;
+    var out = { filled: filled, dir: dir, fromCalc: c.valid, res: res, match: match, ok: false, msg: "" };
+    if (filled < n) { out.msg = "เลือกเทรนให้ครบทุกกรอบเวลา (เหลือ " + (n - filled) + " กรอบ)"; return out; }
+    if (!want) { out.msg = "กรอบใหญ่สุดเป็นไซด์เวย์ ยังไม่มีทิศทางให้เทรดตาม"; return out; }
+    if (rows[0].tr !== want) {
+      out.msg = rows[0].tr === "side" ? "กรอบใหญ่สุดเป็นไซด์เวย์ ไม่มีเทรนรองรับฝั่งที่เข้า" : "ฝั่งที่เข้าสวนเทรนกรอบใหญ่สุด";
+      return out;
+    }
+    if (conflict) { out.msg = "มี " + conflict + " กรอบที่เทรนสวนฝั่งที่เข้า"; return out; }
+    out.ok = true;
+    out.msg = "เทรนสอดคล้องกัน " + match + "/" + n + " กรอบ" + (neutral ? " · ไซด์เวย์ " + neutral + " กรอบ" : "");
+    return out;
+  }
+
+  var CHIP = { match: "ตรง", neutral: "กลาง", conflict: "สวน", "": "—" };
+  function renderMtf(m) {
+    $("cnt-mtf").textContent = m.match + "/" + state.mtf.length + " ตรง";
+    state.mtf.forEach(function (r, i) {
+      var ch = $("chip-" + i);
+      ch.className = "chip " + m.res[i];
+      ch.textContent = CHIP[m.res[i]];
+    });
+    var cls = m.ok ? "msg ok" : (m.filled === state.mtf.length ? "msg bad" : "msg");
+    var h = '<p class="' + cls + '">' + esc(m.msg) + "</p>";
+    if (m.dir) {
+      h += '<p class="hint" style="margin-top:8px">ประเมินกับฝั่ง' + (m.dir === "long" ? "ซื้อ (Long)" : "ขาย (Short)") +
+        (m.fromCalc ? " ตามจุดเข้าและ Stop Loss ด้านล่าง" : " ตามเทรนกรอบใหญ่สุด จนกว่าจะกรอกราคา") + "</p>";
+    }
+    $("mtf-out").innerHTML = h;
+  }
+
+  /* ---------- verdict ---------- */
+  function refresh() {
+    var doneReq = 0, nextText = "", failed = [];
+    allRequired.forEach(function (it) {
+      var v = state.checks[it.id];
+      if (v === "y") doneReq++;
+      else if (v === "n") failed.push(it.t);
+      else if (!nextText) nextText = it.t;
+    });
+    var unmarked = allRequired.length - doneReq - failed.length;
+    SECTIONS.forEach(function (sec, i) {
+      var tot = sec.items.length, d = 0, f = 0;
+      sec.items.forEach(function (it) {
+        var v = state.checks[it.id];
+        if (v === "y") d++; else if (v === "n") f++;
+        $("row-" + it.id).className = "row" + (v ? " is-" + v : "");
+        $("b-" + it.id + "-y").setAttribute("aria-pressed", String(v === "y"));
+        $("b-" + it.id + "-n").setAttribute("aria-pressed", String(v === "n"));
+      });
+      $("cnt-" + i).textContent = d + "/" + tot + (f ? " · ✗ " + f : "");
+    });
+    var c = calc();
+    renderCalc(c);
+    var m = mtf(c);
+    renderMtf(m);
+    var calcOk = c.valid && c.ok;
+    var gates = [];
+    if (!m.ok) gates.push("กรอบเวลา: " + m.msg);
+    if (!calcOk) gates.push(c.valid ? "R:R 1 : " + fmt(c.rr, 2) + " ต่ำกว่าเกณฑ์ 1 : " + fmt(c.min, 2) : c.msg);
+    var remaining = (allRequired.length - doneReq) + gates.length;
+    var pct = Math.round(((doneReq + (m.ok ? 1 : 0) + (calcOk ? 1 : 0)) / (allRequired.length + 2)) * 100);
+    var box = $("verdict");
+    var title, detail, cls;
+    if (remaining === 0) {
+      cls = "ready"; title = "พร้อมเข้าออเดอร์";
+      detail = "ครบทุกข้อบังคับ · เทรนตรง " + m.match + "/" + state.mtf.length + " กรอบ · R:R 1 : " + fmt(c.rr, 2) + " · ขนาดไม้ " + fmt(c.size, c.size >= 100 ? 0 : (c.size >= 1 ? 2 : 4)) + " หน่วย";
+    } else if (failed.length || doneReq === allRequired.length) {
+      cls = "block"; title = "อย่าเพิ่งเข้า";
+      var parts = [];
+      if (failed.length) parts.push("ไม่ผ่านข้อบังคับ " + failed.length + " ข้อ: " + failed[0]);
+      if (unmarked === 0) parts = parts.concat(gates);
+      detail = parts.join(" · ");
+    } else {
+      cls = "wait"; title = "ยังไม่พร้อม · เหลือ " + remaining + " ข้อ";
+      detail = !m.ok ? gates[0] : (nextText ? "ข้อถัดไป: " + nextText : gates[0]);
+    }
+    box.className = "verdict " + cls;
+    $("v-title").textContent = title;
+    $("v-detail").textContent = detail;
+    $("v-fill").style.width = pct + "%";
+  }
+
+  /* ---------- wiring ---------- */
+  function paint() {
+    Array.prototype.forEach.call(document.querySelectorAll("[data-k]"), function (el) { el.value = state.vals[el.dataset.k] == null ? "" : state.vals[el.dataset.k]; });
+    $("notes").value = state.notes;
+    state.mtf.forEach(function (r, i) {
+      $("tf-" + i).value = r.tf;
+      Array.prototype.forEach.call(document.getElementsByName("tr-" + i), function (rb) { rb.checked = rb.value === r.tr; });
+    });
+    refresh();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-k]"), function (el) {
+    el.addEventListener("input", function () { state.vals[el.dataset.k] = el.value; save(); refresh(); });
+  });
+  $("notes").addEventListener("input", function () { state.notes = $("notes").value; save(); });
+
+  var armTimer = null;
+  $("reset").addEventListener("click", function () {
+    var btn = $("reset");
+    if (!btn.classList.contains("armed")) {
+      btn.classList.add("armed");
+      btn.textContent = "กดอีกครั้งเพื่อล้าง";
+      armTimer = setTimeout(function () { btn.classList.remove("armed"); btn.textContent = "เริ่มไม้ใหม่"; }, 4000);
+      return;
+    }
+    clearTimeout(armTimer);
+    btn.classList.remove("armed");
+    btn.textContent = "เริ่มไม้ใหม่";
+    state.checks = {};
+    state.notes = "";
+    state.vals.entry = "";
+    state.vals.stop = "";
+    state.vals.target = "";
+    state.mtf.forEach(function (r) { r.tr = ""; });
+    save();
+    paint();
+    window.scrollTo(0, 0);
+  });
+
+  paint();
+})();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("sw.js").catch(function () {});
+  });
+}
+</script>
+</body>
+</html>
